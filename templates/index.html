@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Emotion Prediction from fMRI</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .model-info {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+
+        .model-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .model-info p {
+            color: #555;
+            margin: 5px 0;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background: #f8f9fa;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e9ecef;
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .selected-file {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .selected-file.show {
+            display: block;
+        }
+
+        .selected-file-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .emotion-result {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .emotion-icon {
+            font-size: 5em;
+            margin-bottom: 15px;
+        }
+
+        .emotion-label {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .emotion-name {
+            font-size: 3em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .probabilities {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .probabilities h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .prob-item {
+            margin-bottom: 15px;
+        }
+
+        .prob-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .prob-bar-container {
+            background: #e9ecef;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .prob-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .new-prediction-btn {
+            margin-top: 20px;
+        }
+
+        .emotion-emoji {
+            display: inline-block;
+        }
+
+        .happy { color: #ffd700; }
+        .sad { color: #4a90e2; }
+        .angry { color: #e74c3c; }
+        .neutral { color: #95a5a6; }
+
+        .brain-visualization {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .brain-visualization h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .brain-regions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .region-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .region-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .region-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+
+        .region-atlas {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .region-bold {
+            color: #444;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .activation-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+
+        .activation-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .activation-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .activation-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .region-importance {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .importance-bar {
+            flex: 1;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .importance-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .importance-value {
+            font-size: 0.85em;
+            color: #667eea;
+            font-weight: bold;
+            min-width: 45px;
+            text-align: right;
+        }
+
+        .explanation-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .explanation-box h4 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .explanation-box p {
+            color: #856404;
+            font-size: 0.9em;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .visualization-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .brain-scan-image {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .scan-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .scan-container h4 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Emotion Prediction</h1>
+        <p class="subtitle">Upload fMRI data to predict emotions</p>
+
+        <div class="model-info" id="modelInfo">
+            <h3>📊 Model Information</h3>
+            <p><strong>Model:</strong> <span id="modelName">Loading...</span></p>
+            <p><strong>Accuracy:</strong> <span id="modelAccuracy">Loading...</span></p>
+            <p><strong>Emotions:</strong> <span id="modelEmotions">Loading...</span></p>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Click to upload or drag & drop</div>
+            <div class="file-info">Supported: .nii, .nii.gz files (max 500MB)</div>
+            <input type="file" id="fileInput" accept=".nii,.nii.gz">
+        </div>
+
+        <div class="selected-file" id="selectedFile">
+            <p>Selected file: <span class="selected-file-name" id="fileName"></span></p>
+        </div>
+
+        <button class="btn" id="predictBtn" disabled>Predict Emotion</button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing fMRI data...</p>
+            <p style="color: #666; font-size: 0.9em;">This may take a few moments</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <div class="emotion-result">
+                <div class="emotion-icon" id="emotionIcon">🎭</div>
+                <div class="emotion-label">Predicted Emotion</div>
+                <div class="emotion-name" id="emotionName">-</div>
+            </div>
+
+            <div class="probabilities">
+                <h3>Confidence Scores</h3>
+                <div id="probabilitiesList"></div>
+            </div>
+
+            <div class="brain-visualization">
+                <h3>🧠 Brain Activity Analysis</h3>
+                
+                <div class="visualization-tabs">
+                    <button class="tab-button active" onclick="switchTab('scan')">Brain Scan</button>
+                    <button class="tab-button" onclick="switchTab('regions')">Top Brain Regions</button>
+                    <button class="tab-button" onclick="switchTab('chart')">Importance Chart</button>
+                </div>
+
+                <div id="scanTab" class="tab-content active">
+                    <div class="scan-container">
+                        <h4>📸 Uploaded fMRI Scan Visualization</h4>
+                        <img id="brainScanImage" class="brain-scan-image" src="" alt="Brain scan visualization" style="display: none;">
+                        <p id="scanLoading" style="text-align: center; color: #666;">Loading brain scan...</p>
+                    </div>
+                </div>
+
+                <div id="regionsTab" class="tab-content">
+                    <div class="brain-regions" id="brainRegions"></div>
+                    
+                    <div class="explanation-box">
+                        <h4>💡 How does this work?</h4>
+                        <p>
+                            The model analyzes <strong>functional connectivity</strong> between brain regions using three atlases 
+                            (Harvard-Oxford, AAL, Destrieux). The regions shown above have the strongest influence on predicting 
+                            the <span id="explainEmotion" style="font-weight: bold;"></span> emotion. Higher importance scores 
+                            indicate regions with stronger connectivity patterns characteristic of this emotional state.
+                        </p>
+                        <p style="margin-top: 10px;">
+                            <strong>🧬 BOLD Signal:</strong> Blood-Oxygen-Level-Dependent signal measures brain activity. 
+                            Higher BOLD values indicate more active regions. The <strong>activation level badges</strong> 
+                            (High/Medium/Low) show how active each region is, helping confirm that the predicted emotion 
+                            matches the brain's activity patterns.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="chartTab" class="tab-content">
+                    <div id="importanceChart" style="width: 100%; height: 500px;"></div>
+                </div>
+            </div>
+
+            <button class="btn new-prediction-btn" onclick="resetForm()">Make Another Prediction</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // Emotion emojis
+        const emotionEmojis = {
+            'happy': '😊',
+            'sad': '😢',
+            'angry': '😠',
+            'neutral': '😐'
+        };
+
+        // Load model info on page load
+        fetch('/model-info')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('modelName').textContent = data.model_name;
+                document.getElementById('modelAccuracy').textContent = (data.accuracy * 100).toFixed(2) + '%';
+                document.getElementById('modelEmotions').textContent = data.emotions.join(', ');
+            })
+            .catch(error => {
+                console.error('Error loading model info:', error);
+            });
+
+        // Upload area click
+        document.getElementById('uploadArea').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+
+        // File input change
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            handleFileSelect(e.target.files[0]);
+        });
+
+        // Drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(file) {
+            if (!file) return;
+
+            if (!file.name.endsWith('.nii') && !file.name.endsWith('.nii.gz')) {
+                showError('Please select a .nii or .nii.gz file');
+                return;
+            }
+
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('selectedFile').classList.add('show');
+            document.getElementById('predictBtn').disabled = false;
+            hideError();
+        }
+
+        // Predict button click
+        document.getElementById('predictBtn').addEventListener('click', () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('predictBtn').disabled = true;
+            document.getElementById('result').classList.remove('show');
+            hideError();
+
+            // Make prediction
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').classList.remove('show');
+
+                if (data.error) {
+                    showError(data.error);
+                    document.getElementById('predictBtn').disabled = false;
+                    return;
+                }
+
+                // Show result
+                displayResult(data);
+            })
+            .catch(error => {
+                document.getElementById('loading').classList.remove('show');
+                showError('Error making prediction: ' + error.message);
+                document.getElementById('predictBtn').disabled = false;
+            });
+        });
+
+        function displayResult(data) {
+            const emotion = data.predicted_emotion;
+            
+            // Set emotion icon and name
+            document.getElementById('emotionIcon').textContent = emotionEmojis[emotion] || '🎭';
+            document.getElementById('emotionName').textContent = emotion;
+            document.getElementById('explainEmotion').textContent = emotion;
+
+            // Display brain scan image
+            if (data.brain_image_url) {
+                const brainImg = document.getElementById('brainScanImage');
+                brainImg.src = data.brain_image_url;
+                brainImg.style.display = 'block';
+                document.getElementById('scanLoading').style.display = 'none';
+            }
+
+            // Display probabilities
+            const probsList = document.getElementById('probabilitiesList');
+            probsList.innerHTML = '';
+
+            data.sorted_probabilities.forEach(([emotion, prob]) => {
+                const probItem = document.createElement('div');
+                probItem.className = 'prob-item';
+                
+                const percentage = (prob * 100).toFixed(1);
+                
+                probItem.innerHTML = `
+                    <div class="prob-label">
+                        <span><span class="emotion-emoji">${emotionEmojis[emotion] || '🎭'}</span> ${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</span>
+                        <span>${percentage}%</span>
+                    </div>
+                    <div class="prob-bar-container">
+                        <div class="prob-bar" style="width: ${percentage}%">
+                            ${percentage > 15 ? percentage + '%' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                probsList.appendChild(probItem);
+            });
+
+            // Display brain regions
+            displayBrainRegions(data.top_brain_regions);
+
+            // Show result
+            document.getElementById('result').classList.add('show');
+        }
+
+        function displayBrainRegions(regions) {
+            const regionsContainer = document.getElementById('brainRegions');
+            regionsContainer.innerHTML = '';
+
+            if (!regions || regions.length === 0) {
+                regionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No region data available</p>';
+                return;
+            }
+
+            // Normalize importance scores for visualization
+            const maxImportance = Math.max(...regions.map(r => r.importance));
+
+            regions.forEach((region, index) => {
+                const normalizedImportance = (region.importance / maxImportance) * 100;
+                
+                const regionItem = document.createElement('div');
+                regionItem.className = 'region-item';
+                regionItem.style.animationDelay = `${index * 0.05}s`;
+                
+                // Get activation badge
+                let activationBadge = '';
+                if (region.activation_level) {
+                    const badgeClass = `activation-${region.activation_level.toLowerCase()}`;
+                    activationBadge = `<span class="activation-badge ${badgeClass}">${region.activation_level} Activity</span>`;
+                }
+                
+                // Format BOLD signal
+                const boldValue = region.bold_signal ? region.bold_signal.toFixed(2) : 'N/A';
+                
+                regionItem.innerHTML = `
+                    <div class="region-name">${index + 1}. ${region.region}</div>
+                    <div class="region-atlas">Atlas: ${region.atlas.toUpperCase()}</div>
+                    <div class="region-bold">🧬 BOLD Signal: ${boldValue} ${activationBadge}</div>
+                    <div class="region-importance">
+                        <div class="importance-bar">
+                            <div class="importance-fill" style="width: ${normalizedImportance}%"></div>
+                        </div>
+                        <div class="importance-value">${normalizedImportance.toFixed(1)}%</div>
+                    </div>
+                `;
+                
+                regionsContainer.appendChild(regionItem);
+            });
+
+            // Create importance chart
+            createImportanceChart(regions);
+        }
+
+        function createImportanceChart(regions) {
+            const top10 = regions.slice(0, 10);
+            const maxImportance = Math.max(...top10.map(r => r.importance));
+            
+            // Debug: Log the data
+            console.log('Chart data:', top10.map(r => ({
+                region: r.region,
+                bold: r.bold_signal,
+                activity: r.activation_level
+            })));
+            
+            // Reverse the order for Plotly (it displays bottom to top)
+            const reversed = [...top10].reverse();
+            
+            // Color by activation level - match the badge colors
+            const colors = reversed.map(r => {
+                if (r.activation_level === 'High') return 'rgba(40, 167, 69, 0.8)';  // Green
+                if (r.activation_level === 'Medium') return 'rgba(255, 193, 7, 0.8)';  // Yellow
+                if (r.activation_level === 'Low') return 'rgba(220, 53, 69, 0.8)';  // Red
+                return 'rgba(108, 117, 125, 0.8)';  // Gray for N/A
+            });
+            
+            // Create hover text with proper BOLD values
+            const hoverText = reversed.map(r => {
+                const boldValue = r.bold_signal ? r.bold_signal.toFixed(2) : 'N/A';
+                const activity = r.activation_level || 'N/A';
+                const importance = ((r.importance / maxImportance) * 100).toFixed(1);
+                return `<b>${r.region}</b><br>Importance: ${importance}%<br>BOLD Signal: ${boldValue}<br>Activity Level: ${activity}`;
+            });
+            
+            const trace = {
+                x: reversed.map(r => (r.importance / maxImportance) * 100),
+                y: reversed.map((r, i) => `${10 - i}. ${r.region.substring(0, 25)}...`),
+                type: 'bar',
+                orientation: 'h',
+                marker: {
+                    color: colors,
+                    line: {
+                        color: '#333',
+                        width: 1
+                    }
+                },
+                text: reversed.map(r => ((r.importance / maxImportance) * 100).toFixed(1) + '%'),
+                textposition: 'outside',
+                hovertemplate: '%{customdata}<extra></extra>',
+                customdata: hoverText
+            };
+
+            const layout = {
+                title: {
+                    text: 'Top 10 Most Important Brain Regions (Color = BOLD Activity Level)',
+                    font: { size: 14, color: '#333' }
+                },
+                xaxis: {
+                    title: 'Relative Importance (%)',
+                    range: [0, 105]
+                },
+                yaxis: {
+                    automargin: true
+                },
+                margin: { l: 250, r: 50, t: 60, b: 50 },
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: 'white',
+                annotations: [{
+                    text: '🟢 High Activity (>70)  🟡 Medium Activity (40-70)  🔴 Low Activity (<40)',
+                    xref: 'paper',
+                    yref: 'paper',
+                    x: 0.5,
+                    y: -0.15,
+                    showarrow: false,
+                    font: { size: 10, color: '#666' }
+                }]
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+
+            Plotly.newPlot('importanceChart', [trace], layout, config);
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            if (tabName === 'scan') {
+                document.getElementById('scanTab').classList.add('active');
+            } else if (tabName === 'regions') {
+                document.getElementById('regionsTab').classList.add('active');
+            } else if (tabName === 'chart') {
+                document.getElementById('chartTab').classList.add('active');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.remove('show');
+        }
+
+        function resetForm() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('selectedFile').classList.remove('show');
+            document.getElementById('predictBtn').disabled = true;
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('brainRegions').innerHTML = '';
+            document.getElementById('brainScanImage').style.display = 'none';
+            document.getElementById('scanLoading').style.display = 'block';
+            hideError();
+        }
+    </script>
+</body>
+</html>
